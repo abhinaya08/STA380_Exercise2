@@ -2,29 +2,331 @@
 title: "Exercise 2"
 author: "JAST"
 date: "August 17, 2018"
-output: html_document
+output: github_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# Question 1
 
-## R Markdown
+```{r}
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
 ```
 
-## Including Plots
+#Question 2
 
-You can also embed plots, for example:
+Predict the author of the article based on article's textual context
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+Step 1: Reading in the corpus
+
+```{r}
+library(tm)
+
+#Wrapper function
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), 
+            id=fname, language='en') }
+
+author_dirs_train = Sys.glob('ReutersC50/C50train/*')
+author_dirs_test = Sys.glob('ReutersC50/C50test/*')
+
+```
+We have imported all the authors files for training into `author_dirs_train`. Now we will clean these files.
+
+```{r}
+# Rolling all directories together into a single corpus and getting Author names
+file_list_train = NULL
+labels = NULL
+for(author in author_dirs_train) 
+{
+  author_name = substring(author, first = 29)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list_train = append(file_list_train, files_to_add)
+  labels = append(labels, rep(author_name, length(files_to_add)))
+}
+
+#Getting rid of '.txt' from filename
+all_docs_train = lapply(file_list_train, readerPlain) 
+names(all_docs_train) = file_list_train
+names(all_docs_train) = sub('.txt', '', names(all_docs_train))
+
+
+file_list_test = NULL
+labels = NULL
+for(author in author_dirs_test) 
+{
+  author_name = substring(author, first = 29)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list_test = append(file_list_test, files_to_add)
+  labels = append(labels, rep(author_name, length(files_to_add)))
+}
+
+#Getting rid of '.txt' from filename
+all_docs_test = lapply(file_list_test, readerPlain) 
+names(all_docs_test) = file_list_test
+names(all_docs_test) = sub('.txt', '', names(all_docs_test))
+
+
+```
+
+`all_docs_train` has all the files. `author_name` has the name of the authors who wrote the corresponding files.
+`file_list_train` has the full path of all the files.
+
+We will now create the corpus for all authors.
+
+```{r}
+
+# Creating training corpus and processing
+my_corpus_train = Corpus(VectorSource(all_docs_train))
+#names(my_corpus_train) = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+
+# Preprocessing
+my_corpus_train = tm_map(my_corpus_train, content_transformer(tolower)) # make everything lowercase
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removeNumbers)) # remove numbers
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removePunctuation)) # remove punctuation
+my_corpus_train = tm_map(my_corpus_train, content_transformer(stripWhitespace)) ## remove excess white-space
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removeWords), stopwords("SMART"))
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removeWords), stopwords("en"))
+
+DTM_train= DocumentTermMatrix(my_corpus_train)
+
+DTM_train# some basic summary statistics
+
+DTM_train = removeSparseTerms(DTM_train, 0.95)
+DTM_train # now ~ 660 terms (versus ~32000 before)
+inspect(DTM_train[1:10,1:10])
+# construct TF IDF weights
+tfidf_train = weightTfIdf(DTM_train)
+
+```
+
+
+Creating test data corpus and ignoring words that arent present in the train data
+
+```{r}
+my_corpus_test = Corpus(VectorSource(all_docs_test))
+#names(my_corpus_test) = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+
+# Preprocessing
+my_corpus_test = tm_map(my_corpus_test, content_transformer(tolower)) # make everything lowercase
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removeNumbers)) # remove numbers
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removePunctuation)) # remove punctuation
+my_corpus_test = tm_map(my_corpus_test, content_transformer(stripWhitespace)) ## remove excess white-space
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removeWords), stopwords("SMART"))
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removeWords), stopwords("en"))
+
+DTM_test= DocumentTermMatrix(my_corpus_test,control = list(dictionary=Terms(DTM_train)))
+
+DTM_test# has the same 660 terms
+
+tfidf_test = weightTfIdf(DTM_test)
+```
+
+Using the TF-IDF scores, we will build the classification model
+
+```{r}
+# PCA on the TF-IDF weights
+
+tfidf_train_df <- as.data.frame(as.matrix(tfidf_train))
+tfidf_test_df <- as.data.frame(as.matrix(tfidf_test))
+
+dim(tfidf_train_df) #2500 660
+tfidf_train_df[ , apply(tfidf_train_df, 2, var) != 0]
+dim(tfidf_train_df) 
+pc_author = prcomp(tfidf_train_df)
+
+pc_author_test <- predict(pc_author, newdata = tfidf_test_df)
+pc_author_test <- as.data.frame(X_test)
+
+pve = summary(pc_author)$importance[3,]
+plot(pve)
+```
+
+Creating Principal Components for training and testing data
+
+```{r}
+tfidf_train_df <- as.data.frame(as.matrix(tfidf_train))
+tfidf_test_df <- as.data.frame(as.matrix(tfidf_test))
+
+pc_author = prcomp(tfidf_train_df)
+pc_author_test <- predict(pc_author, newdata = tfidf_test_df)
+plot(summary(pc_author)$importance[3,])
+```
+Since we cant see much of an elbow, we will cut at 75
+
+## Checking Boosting
+
+```{r}
+library(gbm)
+#mode("X") = "numeric"
+set.seed(12345)
+
+n_cut = 75
+X = pc_author$x[,1:n_cut]
+y = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+X_test = pc_author_test[,1:n_cut]
+y_test = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+
+TrainSet <- cbind(as.data.frame(X),y)
+ValidSet <- cbind(as.data.frame(X_test),y_test)
+
+boost.author <- gbm(y ~.,data=TrainSet, n.trees =100 ,shrinkage = 0.01,distribution = "multinomial",interaction.depth=4, cv.folds = 5)
+summary(boost.author)
+
+#== checking accuracy on trainset
+pred=as.data.frame(predict(boost.author,newdata =TrainSet,n.trees=100,type="response"))
+pred_val = sub("*\\.[0-9]+", "", colnames(pred)[apply(pred,1,which.max)])
+mean(pred_val== y )
+
+#== checking accuracy on test data
+pred=as.data.frame(predict(boost.author,newdata =ValidSet,n.trees=100,type="response"))
+pred_val = sub("*\\.[0-9]+", "", colnames(pred)[apply(pred,1,which.max)])
+mean(pred_val== y ) #0.56
+
+```
+
+Boosting classifies the training data well, but is unable to classify the test data.
+
+## Testing Random Forest
+
+```{r}
+library(randomForest)
+set.seed(12345)
+n_cut = 150
+X = pc_author$x[,1:n_cut]
+y = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+X_test = pc_author_test[,1:n_cut]
+y_test = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+
+TrainSet <- cbind(as.data.frame(X),y)
+ValidSet <- cbind(as.data.frame(X_test),y_test)
+
+rffit <- randomForest(y~.,TrainSet,ntree=200)
+mean(predict(rffit,ValidSet)== y )
+
+```
+
+
+## Testing Naive Bayes
+
+To avoid combinatorial explosion, we will have to build 1 classifier per author
+
+```{r}
+library(foreach)
+library(doParallel)
+set.seed(12345)
+
+
+author_names = unique(sapply(strsplit(names(all_docs_train), "/"), "[", 3))
+author_names_train = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+author_names_test = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+D = ncol(tfidf_train_df)
+#initializing a matrix to store the output of 50 Naive Bayes models
+NB_MODEL = matrix(0,2500,50)
+
+#creating training and testing data
+X_train = tfidf_train_df + 1/D
+X_test  = tfidf_test_df + 1/D
+
+for (i in 1:50){
+  print("Running model for:")
+  print(author_names_train[i])
+  y_train = 0+{author_names_train == author_names[i]}
+  y_test = 0+{author_names_test == author_names[i]}
+  pvec_0 = colSums(X_train[y_train==0,])
+  pvec_0 = pvec_0/sum(pvec_0)
+  pvec_1 = colSums(X_train[y_train==1,])
+  pvec_1 = pvec_1/sum(pvec_1)
+  
+  #Running the classifier on test data
+  yhat_test = foreach(j = 1:2500,.combine='c') %dopar% {
+  test_doc = X_test[j,]
+  logp0 = sum(test_doc * log(pvec_0))
+  logp1 = sum(test_doc * log(pvec_1))
+  0 + {logp1 > logp0} #probabilty of that author
+  }
+  NB_MODEL[,i] = yhat_test
+
+}
+
+```
+
+#Question 3
+
+```{r}
+library(tidyverse)
+library(arules)  # has a big ecosystem of packages built around it
+library(arulesViz)
+library(stringr)
+set.seed(12345)
+
+groceries <- read.transactions("groceries.txt", format = "basket", sep = ",",
+                  cols = NULL, rm.duplicates = FALSE, 
+                  quote = "\"'", skip = 0, 
+                  encoding = "unknown")
+
+groctrans = as(groceries, "transactions")
+summary(groctrans)
+
+# Now run the 'apriori' algorithm
+# Look at rules with support > .005 & confidence >.1 & length (# artists) <= 5
+grocrules = apriori(groctrans, 
+	parameter=list(support=.005, confidence=.2, maxlen=5))
+
+inspect(grocrules)
+
+plot(grocrules, measure = c("support", "lift"), shading = "confidence")
+
+inspect(subset(grocrules, subset=lift > 5))
+
+inspect(subset(grocrules, support > 0.035))
+inspect(subset(grocrules, confidence > 0.7))
+
+
+# support: Fraction of transactions that contain X and Y
+# confidence: Measures how often items in Y appear in X
+
+grocrules = apriori(groctrans, 
+	parameter=list(support=.001, confidence=.6,target ="rules",maxlen=5,minlen=2))
+
+arules::itemFrequencyPlot(groceries,topN=20,col=brewer.pal(8,'Pastel2'),main='Relative Item Frequency Plot',type="relative",ylab="Item Frequency (Relative))")
+inspect(grocrules[1:20])
+
+arulesViz::plotly_arules(grocrules)
+
+plot(grocrules[1:20],method = "graph",control = list(type = "items"))
+
+plot(grocrules[1:20], method = "paracoord",control = list(reorder = TRUE))
+
+saveAsGraph(head(grocrules[1:200], n = 1000, by = "lift"), file = "grocrules.graphml")
+```
+
+Things we tried:
+
+1. We didnt want whole milk. High confidence and low lift means 
+
+
+
+# Question 1
+
+Think about zoning down in the period: May 2008 and December 2008 with summer winter break
+For this period vs. the other, focus if 
+
+For Austin:
+1. Which is the busiest day?
+2. Where is everyone coming from?
+3. Which flight carrier should one avoid?
+
+* Operational Efficiency - TaxiIn TaxiOut
+* Cancels the most
+* Security Delay - Arrival and Departure
+
+
+```{r, echo=FALSE}
+
+
+
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

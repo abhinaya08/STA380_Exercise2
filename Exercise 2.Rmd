@@ -231,7 +231,7 @@ X_test  = tfidf_test_df + 1/D
 
 for (i in 1:50){
   print("Running model for:")
-  print(author_names_train[i])
+  print(author_names[i])
   y_train = 0+{author_names_train == author_names[i]}
   y_test = 0+{author_names_test == author_names[i]}
   pvec_0 = colSums(X_train[y_train==0,])

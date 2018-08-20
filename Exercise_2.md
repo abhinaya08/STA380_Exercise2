@@ -1,6 +1,6 @@
 Exercise 2
 ================
-JAST
+Abhinaya Ananthakrishnan, Jui Gupta, Sherlley Loo, Teeru Gupta
 August 17, 2018
 
 Question 1
@@ -717,4 +717,8 @@ When we took a closer look at the connections in Gephi, shopping trends stood ou
 Conclusion
 ----------
 
-The store manager should
+-   Shoppers who purchase whole milk also purchase other vegetables, rolls / buns, tropical fruits, rice, turkey etc. These are the everyday shoppers who shop for their family too.
+
+-   The store manager should bundle baking products together and place that aisle closer to the frozen food section.
+
+-   Instant food products should be bundled with soda, as that is the itemset which is purchased together most often i.e highest lift

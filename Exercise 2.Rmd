@@ -165,7 +165,7 @@ dep = df %>%
   summarise(dep_delay = mean(DepDelay))
 
 par(mfrow=c(1,2))
-ggplot(arr,aes(x=DayOfWeek, y = arr_delay + scale_x_date(labels=date_format("%a")))) + geom_line() + geom_point()+ labs(title = "Arrival delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of arrival delays")
+ggplot(arr,aes(x=DayOfWeek, y = arr_delay)) + geom_line() + geom_point()+ labs(title = "Arrival delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of arrival delays")
 ggplot(dep,aes(x=DayOfWeek, y = dep_delay)) + geom_line() + geom_point()+ labs(title = "Departure delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of departure delays") 
 
 ```
@@ -305,7 +305,7 @@ Since we cant see much of an elbow, we will cut at 75.
 
 ### Model 1: Boosting
 
-```{r Boosting, warning=FALSE, paged.print=FALSE}
+```{r ,cache = TRUE, warning=FALSE, paged.print=FALSE}
 library(gbm)
 #mode("X") = "numeric"
 set.seed(12345)
@@ -337,7 +337,7 @@ Boosting classifies the training data well, but is unable to classify the test d
 
 ### Model 2: Random Forest
 
-```{r RF, warning=FALSE, paged.print=FALSE}
+```{r, warning=FALSE, cache= TRUE, paged.print=FALSE}
 library(randomForest)
 set.seed(12345)
 n_cut = 150
@@ -363,7 +363,7 @@ Random Forest does a better job than classification as compared to Boosting.
 To avoid combinatorial explosion, we will have to build 1 classifier per author and then take the average accuracy for all authors.
 More details on combinatorial explosion here<a https://stackoverflow.com/questions/36323759/multiclass-classification-with-naive-bayes-and-r >
 
-```{r NB, warning=FALSE, paged.print=FALSE}
+```{r, warning=FALSE, cache= TRUE, paged.print=FALSE}
 library(foreach)
 library(doParallel)
 set.seed(12345)
@@ -453,7 +453,7 @@ summary(groctrans)
 
 As expected, we observe that almost every customer purchases "whole milk" with every other item in the basket.
 
-```{r}
+```{r, cache = TRUE}
 
 # Now run the 'apriori' algorithm
 grocrules = apriori(groctrans, 
@@ -471,7 +471,7 @@ Information on metrics on the plot:
 * Lift: Confidence / Support
 
 
-```{r}
+```{r, cache = TRUE}
 # support: Fraction of transactions that contain X and Y
 # confidence: Measures how often items in Y appear in X
 plot(grocrules, measure = c("support", "lift"), shading = "confidence")
@@ -479,14 +479,14 @@ plot(grocrules, measure = c("support", "lift"), shading = "confidence")
 
 By inspecting various subsets, we are certain that we need a high `confidence` measure.
 
-```{r}
+```{r, cache = TRUE}
 
 inspect(subset(grocrules, lift > 2))
 inspect(subset(grocrules, support > 0.035))
 inspect(subset(grocrules, confidence > 0.5 & lift > 2))
 ```
 
-```{r}
+```{r, cache = TRUE}
 grocrules = apriori(groctrans, 
 	parameter=list(support=.001, confidence=.5,target ="rules",maxlen=5,minlen=2))
 
@@ -494,7 +494,7 @@ inspect(head(grocrules, n = 10, by = "lift"))
 ```
 
 ## Visually plotting the associations
-```{r}
+```{r, cache = TRUE}
 #arulesViz::plotly_arules(grocrules)
 
 plot(grocrules[1:20],method = "graph")

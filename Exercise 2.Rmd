@@ -23,8 +23,76 @@ For Austin:
 * Security Delay - Arrival and Departure
 
 ```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(ggmap)
 
+set.seed(145)
+df = read.csv("C:/Users/teeru/Downloads/ABIA.csv")
 ```
+
+```{r
+#Modifying the data
+df = df %>%
+  mutate_at(c(25:29), funs(replace(.,is.na(.),0))) %>%
+  mutate_at(15, funs(replace(.,is.na(.),0))) %>%
+  mutate ("Flight" = paste(UniqueCarrier,FlightNum) ) %>%
+  mutate("Late Arrival" = ifelse(ArrDelay > 0 , 1, 0)) %>%
+  mutate("Late Carrier" = ifelse(CarrierDelay > 0,1, 0)) %>%
+  mutate("Late Aircraft" = ifelse(LateAircraftDelay > 0, 1, 0)) %>%
+  mutate("OpEff" = `Late Arrival` + `Late Carrier` + `Late Aircraft` + Cancelled)
+```
+
+```{r}
+ggplot(df, aes(x= factor(Month))) +geom_bar(stat = "count") + labs(x = "Month", y= "Number of flights", title = "Number of flights in the year 2008") +coord_flip()
+```
+Since May to August is a busy time especially considering graduation, vacations and new college year start we will look at this data in more detail.
+
+```{r}
+df = df%>%
+  filter(Month == 5 | Month == 6| Month ==7 | Month ==8)
+```
+To see which carriers to avoid, we calculated the operational efficieny of the carriers. The operational efficiency was calculated as the weighted average of the following variables:
+1. Cancelled Flights
+2. Delayed Arrivals
+3. Late Aircrafts
+4. Delays due to the carrier
+
+While there may be some overlap in the above variables, but we have assumed none.
+
+```{r}
+oper = df %>%
+  group_by(UniqueCarrier, OpEff) %>%
+  summarise( cn = n()) %>%
+  mutate(performance = weighted.mean(cn,OpEff))
+
+cls = c(1,4)
+perf = unique(oper[,cls])
+
+ggplot(perf, aes(x = UniqueCarrier , y = performance)) + geom_bar(stat = "identity", fill = "#0000CC") + labs(title = "Operational Delays of Carriers in 2008", x = "Carriers", y="Operational Delays")
+```
+
+In the above graph the lower the height of the bar, the better the operational performance of the carrier.
+
+```{r}
+#busiset day
+arr = df %>%
+  group_by(DayOfWeek) %>%
+  summarise(arr_delay = mean(ArrDelay))
+  
+dep = df %>%
+  mutate_at(15, funs(replace(.,is.na(.),0))) %>%
+  group_by(DayOfWeek) %>%
+  summarise(dep_delay = mean(DepDelay))
+
+par(mfrow=c(1,2))
+ggplot(delays,aes(x=DayOfWeek, y = arr_delay)) + geom_line() + geom_point()+ labs(title = "Arrival delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of arrival delays") 
+ggplot(delays,aes(x=DayOfWeek, y = dep_delay)) + geom_line() + geom_point()+ labs(title = "Departure delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of departure delays")
+```
+Wednesday is the day with least arrival and departure delays
+```{r}
+#maps
 
 # Question 2
 

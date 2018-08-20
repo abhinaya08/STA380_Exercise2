@@ -509,14 +509,14 @@ When we took a closer look at the connections in Gephi, shopping trends stood ou
 
 ### Everyday shoppers
 
-![Whole milk cluster](gephi_whole_milk.png)
+![Whole milk cluster](data/gephi_whole_milk.png)
 
 ### Frozen food section
 
-![Frozen food cluster](gephi_frozen.png)
+![Frozen food cluster](data/gephi_frozen.png)
 
 ### Baking Section
-![Baking cluster](gephi_baking.png)
+![Baking cluster](data/gephi_baking.png)
 
 ## Conclusion
 

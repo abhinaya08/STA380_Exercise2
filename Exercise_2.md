@@ -51,7 +51,7 @@ df = df%>%
 
 ### Which route has the most delays?
 
-During this period, a higher percentage of flights are delayed while departing from Austin as compared to arriving from Austin.
+During this period, a higher percentage of flights are delayed when departing from Austin than arriving in Austin.
 
 From the following plots, we can observe that flights from **Austin -&gt; Virginia** suffer the highest delay times.
 

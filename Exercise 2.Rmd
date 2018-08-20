@@ -371,6 +371,7 @@ To avoid combinatorial explosion, we will have to build 1 classifier per author
 library(foreach)
 library(doParallel)
 set.seed(12345)
+registerDoParallel()
 
 author_names = unique(sapply(strsplit(names(all_docs_train), "/"), "[", 3))
 author_names_train = sapply(strsplit(names(all_docs_train), "/"), "[", 3)

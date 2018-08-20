@@ -23,6 +23,8 @@ For Austin:
 * Security Delay - Arrival and Departure
 
 ```{r}
+###############Q1########################
+
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
@@ -30,10 +32,10 @@ library(ggmap)
 
 set.seed(145)
 df = read.csv("C:/Users/teeru/Downloads/ABIA.csv")
+
 ```
 
-```{r
-#Modifying the data
+```{r}
 df = df %>%
   mutate_at(c(25:29), funs(replace(.,is.na(.),0))) %>%
   mutate_at(15, funs(replace(.,is.na(.),0))) %>%
@@ -42,17 +44,91 @@ df = df %>%
   mutate("Late Carrier" = ifelse(CarrierDelay > 0,1, 0)) %>%
   mutate("Late Aircraft" = ifelse(LateAircraftDelay > 0, 1, 0)) %>%
   mutate("OpEff" = `Late Arrival` + `Late Carrier` + `Late Aircraft` + Cancelled)
+
 ```
 
+To check the number of flights per month
 ```{r}
 ggplot(df, aes(x= factor(Month))) +geom_bar(stat = "count") + labs(x = "Month", y= "Number of flights", title = "Number of flights in the year 2008") +coord_flip()
-```
-Since May to August is a busy time especially considering graduation, vacations and new college year start we will look at this data in more detail.
 
-```{r}
+```
+
+  Since May to August is a busy time especially considering graduation, vacations and new college year start we will look at this data in more detail
+  
+  
+```{r include=FALSE}
 df = df%>%
   filter(Month == 5 | Month == 6| Month ==7 | Month ==8)
 ```
+
+Checking which states have the maximum arrival or departure delay
+
+```{r}
+####Create a map for the 
+air = read.csv("C:/Users/teeru/Downloads/183806017_T_MASTER_CORD.csv")
+
+dup = air[,1]
+air_ll = air[!duplicated(dup),]
+air_ll = air_ll[,c(1,4,6,8)]
+
+df = merge(x = df, y = air_ll, all.x = TRUE, by.x = "Dest", by.y = "AIRPORT")
+df = merge(x = df, y = air_ll, all.x = TRUE, by.x = "Origin", by.y = "AIRPORT", suffix =c(".dest",".org"))
+
+df_origin = df %>%
+  filter(Origin == "AUS") 
+
+df_dest = df %>%
+  filter(Dest == "AUS")
+
+```
+Every flight is domestic. Hence considering the map of US
+
+```{r}
+origin = df_origin %>%
+  mutate_at(15, funs(replace(.,is.na(.),0))) %>%
+  group_by(AIRPORT_STATE_NAME.dest) %>%
+  summarize(flights = mean(DepDelay))
+
+destination = df_dest %>%
+  group_by(AIRPORT_STATE_NAME.org) %>%
+  summarize(flights = mean(ArrDelay))
+
+```
+
+Since departure delays are very few, we will only look at arrival delays
+```{r}
+library(maps)
+us_states= map_data("state")
+destination$AIRPORT_STATE_NAME.org = tolower(destination$AIRPORT_STATE_NAME.org)
+us_states_flight_dest = merge(x = us_states, y = destination, all.x = TRUE, by.x="region", by.y = "AIRPORT_STATE_NAME.org")
+us_states_flight_dest = us_states_flight_dest %>%
+  mutate_at(7, funs(replace(.,is.na(.),0)))
+
+```
+
+```{r}
+library(ggplot2)
+library(fiftystater)
+
+data("fifty_states") # this line is optional due to lazy data loading
+q <- ggplot(us_states_flight_dest, aes(map_id = region)) + 
+  # map points to the fifty_states shape data
+  geom_map(aes(fill = flights), map = fifty_states) + 
+  expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+  coord_map() +
+  scale_x_continuous(breaks = NULL) + 
+  scale_y_continuous(breaks = NULL) +
+  labs(x = "", y = "") +
+  theme(legend.position = "bottom", 
+        panel.background = element_blank()) +
+  labs(title ="Flights departing from Austin to other cities")
+
+q
+
+```
+
+As seen above the flights to the state of Virginia have the maximum departure delay.
+
 To see which carriers to avoid, we calculated the operational efficieny of the carriers. The operational efficiency was calculated as the weighted average of the following variables:
 1. Cancelled Flights
 2. Delayed Arrivals
@@ -62,18 +138,21 @@ To see which carriers to avoid, we calculated the operational efficieny of the c
 While there may be some overlap in the above variables, but we have assumed none.
 
 ```{r}
-oper = df %>%
+ops = df %>%
   group_by(UniqueCarrier, OpEff) %>%
   summarise( cn = n()) %>%
   mutate(performance = weighted.mean(cn,OpEff))
 
 cls = c(1,4)
-perf = unique(oper[,cls])
+perfid = unique(ops[,cls])
 
-ggplot(perf, aes(x = UniqueCarrier , y = performance)) + geom_bar(stat = "identity", fill = "#0000CC") + labs(title = "Operational Delays of Carriers in 2008", x = "Carriers", y="Operational Delays")
+ggplot(perfid, aes(x = UniqueCarrier , y = performance)) + geom_bar(stat = "identity", fill = "#0000CC") + labs(title = "Operational Delays of Carriers in 2008", x = "Carriers", y="Operational Delays")
+
 ```
 
+
 In the above graph the lower the height of the bar, the better the operational performance of the carrier.
+
 
 ```{r}
 #busiset day
@@ -82,20 +161,22 @@ arr = df %>%
   summarise(arr_delay = mean(ArrDelay))
   
 dep = df %>%
-  mutate_at(15, funs(replace(.,is.na(.),0))) %>%
+  mutate_at(18, funs(replace(.,is.na(.),0))) %>%
   group_by(DayOfWeek) %>%
   summarise(dep_delay = mean(DepDelay))
 
 par(mfrow=c(1,2))
-ggplot(delays,aes(x=DayOfWeek, y = arr_delay)) + geom_line() + geom_point()+ labs(title = "Arrival delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of arrival delays") 
-ggplot(delays,aes(x=DayOfWeek, y = dep_delay)) + geom_line() + geom_point()+ labs(title = "Departure delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of departure delays")
+ggplot(arr,aes(x=DayOfWeek, y = arr_delay)) + geom_line() + geom_point()+ labs(title = "Arrival delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of arrival delays") 
+ggplot(dep,aes(x=DayOfWeek, y = dep_delay)) + geom_line() + geom_point()+ labs(title = "Departure delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of departure delays") 
+
 ```
 
 Wednesday is the day with least arrival and departure delays
-#maps
-```{r}
 
-```
+
+
+Results:
+If you want to travel and be on time in the months of May to Aug, travel by NW airline carrier on a Wednesday.Also the flights to Virginia, New York and North Carolina had the most departure delay. Hence, for a good start to your vacation, you might want to avoid these states.
 
 # Question 2
 

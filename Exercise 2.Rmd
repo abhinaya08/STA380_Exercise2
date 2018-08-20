@@ -64,6 +64,8 @@ perf = unique(oper[,cls])
 ggplot(perf, aes(x = UniqueCarrier , y = performance)) + geom_bar(stat = "identity", fill = "#0000CC") + labs(title = "Operational Delays of Carriers in 2008", x = "Carriers", y="Operational Delays")
 ```
 
+In the above graph the lower the height of the bar, the better the operational performance of the carrier.
+
 #Question 2
 
 Predict the author of the article based on article's textual context

@@ -696,3 +696,25 @@ plot(head(grocrules, n = 50, by = "lift"), method = "paracoord",control = list(r
 ``` r
 saveAsGraph(head(grocrules[1:200], n = 1000, by = "lift"), file = "grocrules.graphml")
 ```
+
+Gephi Analysis
+--------------
+
+When we took a closer look at the connections in Gephi, shopping trends stood out.
+
+### Everyday shoppers
+
+![Whole milk cluster](gephi_whole_milk.png)
+
+### Frozen food section
+
+![Frozen food cluster](gephi_frozen.png)
+
+### Baking Section
+
+![Baking cluster](gephi_baking.png)
+
+Conclusion
+----------
+
+The store manager should

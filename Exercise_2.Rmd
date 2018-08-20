@@ -518,3 +518,6 @@ When we took a closer look at the connections in Gephi, shopping trends stood ou
 ### Baking Section
 ![Baking cluster](gephi_baking.png)
 
+## Conclusion
+
+The store manager should 

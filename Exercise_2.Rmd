@@ -1,0 +1,520 @@
+---
+title: "Exercise 2"
+author: "JAST"
+date: "August 17, 2018"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Question 1
+
+## Analysis details:
+
+Austin has one of the busiest airports in the city mainly driven by students attending UT Austin. We believe that we can generate some valuable insights to students starting school along with their parents, friends and relatives visiting this wonderful city.
+
+For a comfortable journey, we feel the following information is crucial:
+
+1. Which are the busiest months?
+2. Which is the busiest day?
+3. Where is busiest route?
+4. Which flight carrier should one avoid?
+
+```{r, cache= TRUE}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(ggmap)
+
+set.seed(145)
+df = read.csv("data/ABIA.csv")
+
+df = df %>%
+  mutate_at(c(25:29), funs(replace(.,is.na(.),0))) %>%
+  mutate_at(15, funs(replace(.,is.na(.),0))) %>%
+  mutate ("Flight" = paste(UniqueCarrier,FlightNum) ) %>%
+  mutate("Late Arrival" = ifelse(ArrDelay > 0 , 1, 0)) %>%
+  mutate("Late Carrier" = ifelse(CarrierDelay > 0,1, 0)) %>%
+  mutate("Late Aircraft" = ifelse(LateAircraftDelay > 0, 1, 0)) %>%
+  mutate("OpEff" = `Late Arrival` + `Late Carrier` + `Late Aircraft` + Cancelled)
+
+```
+
+### Which are the busiest months at ABIA?
+```{r, cache= TRUE}
+ggplot(df, aes(x= factor(Month))) +geom_bar(stat = "count") + labs(x = "Month", y= "Number of flights", title = "Number of flights in the year 2008") +coord_flip()
+
+```
+
+As expected, we observe that May to August is a busy time given graduation, vacations and back to school. 
+
+We will further analyze this data to check our hypotheses.
+  
+```{r,cache= TRUE}
+df = df%>%
+  filter(Month == 5 | Month == 6| Month ==7 | Month ==8)
+```
+
+### Which route has the most delays? 
+
+During this period, a higher percentage of flights are delayed while departing from Austin as compared to arriving from Austin. 
+
+From the following plots, we can observe that flights from **Austin -> Virginia** suffer the highest delay times.
+
+```{r,cache=TRUE}
+####Create a map for the 
+air = read.csv("data/183806017_T_MASTER_CORD.csv")
+
+dup = air[,1]
+air_ll = air[!duplicated(dup),]
+air_ll = air_ll[,c(1,4,6,8)]
+
+df = merge(x = df, y = air_ll, all.x = TRUE, by.x = "Dest", by.y = "AIRPORT")
+df = merge(x = df, y = air_ll, all.x = TRUE, by.x = "Origin", by.y = "AIRPORT", suffix =c(".dest",".org"))
+
+df_origin = df %>%
+  filter(Origin == "AUS") 
+
+df_dest = df %>%
+  filter(Dest == "AUS")
+
+origin = df_origin %>%
+  mutate_at(15, funs(replace(.,is.na(.),0))) %>%
+  group_by(AIRPORT_STATE_NAME.dest) %>%
+  summarize(flights = mean(DepDelay))
+head(origin)
+barplot(origin$flights, names.arg = origin$AIRPORT_STATE_NAME.dest,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights delayed while departing from ABIA")
+
+destination = df_dest %>%
+  group_by(AIRPORT_STATE_NAME.org) %>%
+  summarize(flights = mean(ArrDelay))
+destination$AIRPORT_STATE_NAME.org
+barplot(destination$flights, names.arg = destination$AIRPORT_STATE_NAME.org,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights delayed while arrivaing at ABIA")
+
+```
+
+
+
+```{r,cache=TRUE}
+library(maps)
+library(fiftystater)
+us_states= map_data("state")
+destination$AIRPORT_STATE_NAME.org = tolower(destination$AIRPORT_STATE_NAME.org)
+us_states_flight_dest = merge(x = us_states, y = destination, all.x = TRUE, by.x="region", by.y = "AIRPORT_STATE_NAME.org")
+us_states_flight_dest = us_states_flight_dest %>%
+  mutate_at(7, funs(replace(.,is.na(.),0)))
+
+data("fifty_states") # this line is optional due to lazy data loading
+q <- ggplot(us_states_flight_dest, aes(map_id = region)) + 
+  # map points to the fifty_states shape data
+  geom_map(aes(fill = flights), map = fifty_states) + 
+  expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+  coord_map() +
+  scale_x_continuous(breaks = NULL) + 
+  scale_y_continuous(breaks = NULL) +
+  labs(x = "", y = "") +
+  theme(legend.position = "bottom", 
+        panel.background = element_blank()) +
+  labs(title ="Flights departing from Austin to other cities")
+q
+```
+
+As seen above the flights to the state of Virginia have the maximum departure delay.
+
+### Which carriers should one avoid?
+
+To analyze which carriers to avoid, we calculated the operational efficieny of the carriers. The operational efficiency was calculated as the weighted average of the following variables:
+
+1. Cancelled Flights
+2. Delayed Arrivals
+3. Late Aircrafts
+4. Delays due to the carrier
+
+
+The following graph compares the operational efficiency across the various carriers that operate out of ABIA. The operational efficiency is inversely proportional to the performance of the carrier i.e  the lower the operational efficiency, better the performance of the carrier.
+
+```{r,cache=TRUE}
+ops = df %>%
+  group_by(UniqueCarrier, OpEff) %>%
+  summarise( cn = n()) %>%
+  mutate(performance = weighted.mean(cn,OpEff))
+
+cls = c(1,4)
+perfid = unique(ops[,cls])
+
+ggplot(perfid, aes(x = UniqueCarrier , y = performance)) + geom_bar(stat = "identity", fill = "#0000CC") + labs(title = "Operational Delays of Carriers in 2008", x = "Carriers", y="Operational Delays")
+
+```
+
+
+### Is there a day of the week that should be avoided?
+
+The following graphs exhibit that **Wednesday** is the best day to travel with minimal arrival and departure delays.
+
+```{r,cache=TRUE}
+#busiset day
+arr = df %>%
+  group_by(DayOfWeek) %>%
+  summarise(arr_delay = mean(ArrDelay))
+  
+dep = df %>%
+  mutate_at(18, funs(replace(.,is.na(.),0))) %>%
+  group_by(DayOfWeek) %>%
+  summarise(dep_delay = mean(DepDelay))
+
+par(mfrow=c(1,2))
+ggplot(arr,aes(x=DayOfWeek, y = arr_delay)) + geom_line() + geom_point()+ labs(title = "Arrival delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of arrival delays")
+ggplot(dep,aes(x=DayOfWeek, y = dep_delay)) + geom_line() + geom_point()+ labs(title = "Departure delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of departure delays") 
+
+```
+
+## Conclusion
+If you're looking travel to Austin to attend your kid's graduation or heading back to school, we strongly advise (in the months of May to Aug):
+
+1. Travel by NW airline carrier 
+2. On a Wednesday
+3. And avoid flying to Virginia, New York and North Carolina
+
+
+# Question 2
+
+Predict the author of the article based on article's textual context
+
+## Step 1: Reading in the files from C50train and C50test directories
+
+```{r,cache=TRUE,message=FALSE, warning=FALSE, paged.print=FALSE, results="hide"}
+library(tm)
+
+#Wrapper function
+readerPlain = function(fname){
+  readPlain(elem=list(content=readLines(fname)), 
+            id=fname, language='en') }
+
+author_dirs_train = Sys.glob('ReutersC50/C50train/*')
+author_dirs_test = Sys.glob('ReutersC50/C50test/*')
+
+```
+
+We have imported all the authors files for training into `author_dirs_train`. Now we will clean these files.
+
+```{r, cache= TRUE,message=FALSE, warning=FALSE, paged.print=FALSE, results="hide"}
+# Rolling all directories together into a single corpus and getting Author names
+file_list_train = NULL
+labels = NULL
+for(author in author_dirs_train) 
+{
+  author_name = substring(author, first = 29)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list_train = append(file_list_train, files_to_add)
+  labels = append(labels, rep(author_name, length(files_to_add)))
+}
+
+#Getting rid of '.txt' from filename
+all_docs_train = lapply(file_list_train, readerPlain) 
+names(all_docs_train) = file_list_train
+names(all_docs_train) = sub('.txt', '', names(all_docs_train))
+
+
+file_list_test = NULL
+labels = NULL
+for(author in author_dirs_test) 
+{
+  author_name = substring(author, first = 29)
+  files_to_add = Sys.glob(paste0(author, '/*.txt'))
+  file_list_test = append(file_list_test, files_to_add)
+  labels = append(labels, rep(author_name, length(files_to_add)))
+}
+
+#Getting rid of '.txt' from filename
+all_docs_test = lapply(file_list_test, readerPlain) 
+names(all_docs_test) = file_list_test
+names(all_docs_test) = sub('.txt', '', names(all_docs_test))
+```
+
+`all_docs_train` has all the files. `author_name` has the name of the authors who wrote the corresponding files.
+`file_list_train` has the full path of all the files.
+
+## Step 2: Creating the Document Term Matrix and TF-IDF for training
+
+```{r, cache= TRUE,message=FALSE, warning=FALSE, paged.print=FALSE, results="hide"}
+
+# Creating training corpus and processing
+my_corpus_train = Corpus(VectorSource(all_docs_train))
+#names(my_corpus_train) = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+
+# Preprocessing
+my_corpus_train = tm_map(my_corpus_train, content_transformer(tolower)) # make everything lowercase
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removeNumbers)) # remove numbers
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removePunctuation)) # remove punctuation
+my_corpus_train = tm_map(my_corpus_train, content_transformer(stripWhitespace)) ## remove excess white-space
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removeWords), stopwords("SMART"))
+my_corpus_train = tm_map(my_corpus_train, content_transformer(removeWords), stopwords("en"))
+
+DTM_train= DocumentTermMatrix(my_corpus_train)
+
+DTM_train# some basic summary statistics
+
+DTM_train = removeSparseTerms(DTM_train, 0.95)
+DTM_train # now ~ 660 terms (versus ~32000 before)
+tfidf_train = weightTfIdf(DTM_train)
+```
+
+## Step 3: Creating the Document Term Matrix and TF-IDF for testing
+
+NOTE: The words which aren't present in the training data are dropped here from the test DTM.
+
+```{r, cache= TRUE,message=FALSE, warning=FALSE, paged.print=FALSE, results="hide"}
+my_corpus_test = Corpus(VectorSource(all_docs_test))
+#names(my_corpus_test) = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+
+# Preprocessing
+my_corpus_test = tm_map(my_corpus_test, content_transformer(tolower)) # make everything lowercase
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removeNumbers)) # remove numbers
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removePunctuation)) # remove punctuation
+my_corpus_test = tm_map(my_corpus_test, content_transformer(stripWhitespace)) ## remove excess white-space
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removeWords), stopwords("SMART"))
+my_corpus_test = tm_map(my_corpus_test, content_transformer(removeWords), stopwords("en"))
+
+DTM_test= DocumentTermMatrix(my_corpus_test,control = list(dictionary=Terms(DTM_train)))
+
+DTM_test# has the same 660 terms
+tfidf_test = weightTfIdf(DTM_test)
+```
+
+## Step 4: Summarizing the Term matrices by using PCA
+
+
+```{r, cache= TRUE}
+tfidf_train_df <- as.data.frame(as.matrix(tfidf_train))
+tfidf_test_df <- as.data.frame(as.matrix(tfidf_test))
+
+# PCA on the TF-IDF weights
+pc_author = prcomp(tfidf_train_df)
+pc_author_test <- predict(pc_author, newdata = tfidf_test_df)
+pc_author_test <- as.data.frame(pc_author_test)
+
+pve = summary(pc_author)$importance[3,]
+plot(pve)
+```
+
+Since we cant see much of an elbow, we will cut at 75.
+
+## Step 5: Exploring Classification Models
+
+### Model 1: Boosting
+
+```{r ,cache = TRUE, warning=FALSE, paged.print=FALSE}
+library(gbm)
+#mode("X") = "numeric"
+set.seed(12345)
+
+n_cut = 75
+X = pc_author$x[,1:n_cut]
+y = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+X_test = pc_author_test[,1:n_cut]
+y_test = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+
+TrainSet <- cbind(as.data.frame(X),y)
+ValidSet <- cbind(as.data.frame(X_test),y_test)
+
+boost.author <- gbm(y ~.,data=TrainSet, n.trees =100 ,shrinkage = 0.01,distribution = "multinomial",interaction.depth=4, cv.folds = 5)
+
+#== checking accuracy on trainset
+pred=as.data.frame(predict(boost.author,newdata =TrainSet,n.trees=100,type="response"))
+pred_val = sub("*\\.[0-9]+", "", colnames(pred)[apply(pred,1,which.max)])
+mean(pred_val== y )
+
+#== checking accuracy on test data
+pred=as.data.frame(predict(boost.author,newdata =ValidSet,n.trees=100,type="response"))
+pred_val = sub("*\\.[0-9]+", "", colnames(pred)[apply(pred,1,which.max)])
+mean(pred_val== y )
+
+```
+
+Boosting classifies the training data well, but is unable to classify the test data.
+
+### Model 2: Random Forest
+
+```{r, warning=FALSE, cache= TRUE, paged.print=FALSE}
+library(randomForest)
+set.seed(12345)
+n_cut = 150
+X = pc_author$x[,1:n_cut]
+y = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+X_test = pc_author_test[,1:n_cut]
+y_test = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+
+TrainSet <- cbind(as.data.frame(X),y)
+ValidSet <- cbind(as.data.frame(X_test),y_test)
+
+rffit <- randomForest(y~.,TrainSet,ntree=200)
+mean(predict(rffit,TrainSet)== y )
+mean(predict(rffit,ValidSet)== y )
+
+```
+
+Random Forest does a better job than classification as compared to Boosting.
+
+
+## Model 3: Naive Bayes
+
+To avoid combinatorial explosion, we will have to build 1 classifier per author and then take the average accuracy for all authors.
+More details on combinatorial explosion here (https://stackoverflow.com/questions/36323759/multiclass-classification-with-naive-bayes-and-r)
+
+```{r eval=FALSE, warning=FALSE, cache=TRUE, include=FALSE, paged.print=FALSE}
+library(foreach)
+library(doParallel)
+set.seed(12345)
+registerDoParallel()
+
+author_names = unique(sapply(strsplit(names(all_docs_train), "/"), "[", 3))
+author_names_train = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+author_names_test = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+D = ncol(tfidf_train_df)
+
+#initializing a matrix to store the output of 50 Naive Bayes models
+NB_MODEL = matrix(0,2500,50)
+NB_error_rate = matrix(0,50)
+
+#creating training and testing data
+X_train = tfidf_train_df + 1/D
+X_test  = tfidf_test_df + 1/D
+
+#Training Naive Bayes classifier for all models
+for (i in 1:50){
+  y_train = 0+{author_names_train == author_names[i]}
+  y_test = 0+{author_names_test == author_names[i]}
+  pvec_0 = colSums(X_train[y_train==0,])
+  pvec_0 = pvec_0/sum(pvec_0)
+  pvec_1 = colSums(X_train[y_train==1,])
+  pvec_1 = pvec_1/sum(pvec_1)
+  
+  #Running the classifier on test data
+  yhat_test = foreach(j = 1:2500,.combine='c') %dopar% {
+    test_doc = X_test[j,]
+    logp0 = sum(test_doc * log(pvec_0))
+    logp1 = sum(test_doc * log(pvec_1))
+    0 + {logp1 > logp0} #probabilty of that author
+  }
+  NB_MODEL[,i] = yhat_test
+  confusion_matrix = xtabs(~y_test + yhat_test)
+  NB_error_rate[i] = sum(diag(confusion_matrix))/2500
+}
+
+mean(NB_error_rate)
+plot(NB_error_rate)
+```
+
+
+
+## Model Comparison and Conclusion
+
+|                    	| XG Boost 	| Random Forest 	| Naive Bayes 	|
+|--------------------	|----------	|---------------	|-------------	|
+| Baseline Accuracy  	|  85.7 %  	|      100%     	|      NA     	|
+| Test Accuracy      	|   39.0%  	|     50.3%     	|    97.7%    	|
+| Computational Time 	|  Medium  	|     Short     	|     Long    	|
+
+
+Naive Bayes does a good job at classifying the zeros i.e identifying which documents **do not** belong to a particular author.
+
+Dropping words from the test dictionary (DTM) that do not belong to the training dictionary may be the driving factor for lower accuracy scores from advanced algorithms like Random Forest and Boosting. 
+
+We also observed that Multiclass Lasso Regression and Ridge Regression failed to converge, primarily because of the non-linearity in the data
+
+# Question 3
+
+`groceries.txt` consits of items that are purchased in one basket in a grocery store. By summarizing the transactions, we can observe that the most frequently purchased item was "whole milk" followed by "other vegetables" and "rolls/buns".
+
+By using this data, we want to recommend to the store manager:
+
+* The item bundles he can run promotions on
+* Placement of items on aisles
+
+```{r, cache= TRUE,message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(arules)  
+library(arulesViz)
+library(stringr)
+set.seed(12345)
+
+groceries <- read.transactions("data/groceries.txt", format = "basket", sep = ",",
+                  cols = NULL, rm.duplicates = FALSE, 
+                  quote = "\"'", skip = 0, 
+                  encoding = "unknown")
+
+groctrans = as(groceries, "transactions")
+summary(groctrans)
+```
+
+## Creating premlinary rules
+
+As expected, we observe that almost every customer purchases "whole milk" with every other item in the basket.
+
+```{r, cache = TRUE}
+
+# Now run the 'apriori' algorithm
+grocrules = apriori(groctrans, 
+	parameter=list(support=.005, confidence=.2, maxlen=5))
+
+inspect(grocrules[1:10])
+```
+
+Since we want to focus on bundles that are bought frequently *together* we want to focus on the darker red dots in the following graph.
+
+Information on metrics on the plot:
+
+* Support: Fraction of transactions that contain X and Y
+* Confidence: Measures how often items in Y appear in X
+* Lift: Confidence / Support
+
+
+```{r, cache = TRUE}
+# support: Fraction of transactions that contain X and Y
+# confidence: Measures how often items in Y appear in X
+plot(grocrules, measure = c("support", "lift"), shading = "confidence")
+```
+
+By inspecting various subsets, we are certain that we need a high `confidence` measure.
+
+```{r, cache = TRUE}
+
+inspect(head(subset(grocrules, lift > 2)), n = 10, by = "lift")
+inspect(head(subset(grocrules, support > 0.035)), n = 10, by = "support")
+inspect(head(subset(grocrules, confidence > 0.5 & lift > 2)), n = 10, by = "confidence")
+```
+
+```{r, cache = TRUE}
+grocrules = apriori(groctrans, 
+	parameter=list(support=.001, confidence=.5,target ="rules",maxlen=5,minlen=2))
+
+inspect(head(grocrules, n = 10, by = "lift"))
+```
+
+## Visually plotting the associations
+```{r, cache = TRUE}
+#arulesViz::plotly_arules(grocrules)
+
+plot(head(grocrules, n = 20, by = "lift"),method = "graph")
+
+plot(head(grocrules, n = 50, by = "lift"), method = "paracoord",control = list(reorder = TRUE))
+
+saveAsGraph(head(grocrules[1:200], n = 1000, by = "lift"), file = "grocrules.graphml")
+```
+
+## Gephi Analysis
+
+When we took a closer look at the connections in Gephi, shopping trends stood out.
+
+### Everyday shoppers
+
+![Whole milk cluster](gephi_whole_milk.png)
+
+### Frozen food section
+
+![Frozen food cluster](gephi_frozen.png)
+
+### Baking Section
+![Baking cluster](gephi_baking.png)
+

@@ -10,15 +10,27 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 # Question 1
 
+Think about zoning down in the period: May 2008 and December 2008 with summer winter break
+For this period vs. the other, focus if 
+
+For Austin:
+1. Which is the busiest day?
+2. Where is everyone coming from?
+3. Which flight carrier should one avoid?
+
+* Operational Efficiency - TaxiIn TaxiOut
+* Cancels the most
+* Security Delay - Arrival and Departure
+
 ```{r}
 
 ```
 
-#Question 2
+# Question 2
 
 Predict the author of the article based on article's textual context
 
-Step 1: Reading in the corpus
+## Step 1: Reading in the files from C50train and C50test directories
 
 ```{r}
 library(tm)
@@ -32,6 +44,7 @@ author_dirs_train = Sys.glob('ReutersC50/C50train/*')
 author_dirs_test = Sys.glob('ReutersC50/C50test/*')
 
 ```
+
 We have imported all the authors files for training into `author_dirs_train`. Now we will clean these files.
 
 ```{r}
@@ -66,14 +79,12 @@ for(author in author_dirs_test)
 all_docs_test = lapply(file_list_test, readerPlain) 
 names(all_docs_test) = file_list_test
 names(all_docs_test) = sub('.txt', '', names(all_docs_test))
-
-
 ```
 
 `all_docs_train` has all the files. `author_name` has the name of the authors who wrote the corresponding files.
 `file_list_train` has the full path of all the files.
 
-We will now create the corpus for all authors.
+## Step 2: Creating the Document Term Matrix and TF-IDF for training
 
 ```{r}
 
@@ -101,8 +112,9 @@ tfidf_train = weightTfIdf(DTM_train)
 
 ```
 
+## Step 3: Creating the Document Term Matrix and TF-IDF for testing
 
-Creating test data corpus and ignoring words that arent present in the train data
+NOTE: The words which aren't present in the training data are dropped here from the test DTM.
 
 ```{r}
 my_corpus_test = Corpus(VectorSource(all_docs_test))
@@ -123,7 +135,8 @@ DTM_test# has the same 660 terms
 tfidf_test = weightTfIdf(DTM_test)
 ```
 
-Using the TF-IDF scores, we will build the classification model
+## Step 4: Summarizing the Term matrices by using PCA
+
 
 ```{r}
 # PCA on the TF-IDF weights
@@ -131,33 +144,21 @@ Using the TF-IDF scores, we will build the classification model
 tfidf_train_df <- as.data.frame(as.matrix(tfidf_train))
 tfidf_test_df <- as.data.frame(as.matrix(tfidf_test))
 
-dim(tfidf_train_df) #2500 660
-tfidf_train_df[ , apply(tfidf_train_df, 2, var) != 0]
-dim(tfidf_train_df) 
 pc_author = prcomp(tfidf_train_df)
-
 pc_author_test <- predict(pc_author, newdata = tfidf_test_df)
-pc_author_test <- as.data.frame(X_test)
+pc_author_test <- as.data.frame(pc_author_test)
 
 pve = summary(pc_author)$importance[3,]
 plot(pve)
 ```
 
-Creating Principal Components for training and testing data
+Since we cant see much of an elbow, we will cut at 75.
 
-```{r}
-tfidf_train_df <- as.data.frame(as.matrix(tfidf_train))
-tfidf_test_df <- as.data.frame(as.matrix(tfidf_test))
+## Step 5: Exploring Classification Models
 
-pc_author = prcomp(tfidf_train_df)
-pc_author_test <- predict(pc_author, newdata = tfidf_test_df)
-plot(summary(pc_author)$importance[3,])
-```
-Since we cant see much of an elbow, we will cut at 75
+### Model 1: Boosting
 
-## Checking Boosting
-
-```{r}
+```{r,cache=TRUE}
 library(gbm)
 #mode("X") = "numeric"
 set.seed(12345)
@@ -182,15 +183,15 @@ mean(pred_val== y )
 #== checking accuracy on test data
 pred=as.data.frame(predict(boost.author,newdata =ValidSet,n.trees=100,type="response"))
 pred_val = sub("*\\.[0-9]+", "", colnames(pred)[apply(pred,1,which.max)])
-mean(pred_val== y ) #0.56
+mean(pred_val== y )
 
 ```
 
 Boosting classifies the training data well, but is unable to classify the test data.
 
-## Testing Random Forest
+### Model 2: Random Forest
 
-```{r}
+```{r,cache=TRUE}
 library(randomForest)
 set.seed(12345)
 n_cut = 150
@@ -207,12 +208,14 @@ mean(predict(rffit,ValidSet)== y )
 
 ```
 
+Random Forest does a better job than classification as compared to Boosting.
 
-## Testing Naive Bayes
+
+## Model 3: Naive Bayes
 
 To avoid combinatorial explosion, we will have to build 1 classifier per author
 
-```{r}
+```{r,cache=TRUE}
 library(foreach)
 library(doParallel)
 set.seed(12345)
@@ -250,9 +253,10 @@ for (i in 1:50){
 
 }
 
+write.csv(NB_MODEL,"nb_model.csv")
 ```
 
-#Question 3
+# Question 3
 
 ```{r}
 library(tidyverse)
@@ -308,25 +312,3 @@ Things we tried:
 
 
 
-# Question 1
-
-Think about zoning down in the period: May 2008 and December 2008 with summer winter break
-For this period vs. the other, focus if 
-
-For Austin:
-1. Which is the busiest day?
-2. Where is everyone coming from?
-3. Which flight carrier should one avoid?
-
-* Operational Efficiency - TaxiIn TaxiOut
-* Cancels the most
-* Security Delay - Arrival and Departure
-
-
-```{r, echo=FALSE}
-
-
-
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -291,11 +291,11 @@ library(foreach)
 library(doParallel)
 set.seed(12345)
 
-
 author_names = unique(sapply(strsplit(names(all_docs_train), "/"), "[", 3))
 author_names_train = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
 author_names_test = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
 D = ncol(tfidf_train_df)
+
 #initializing a matrix to store the output of 50 Naive Bayes models
 NB_MODEL = matrix(0,2500,50)
 
@@ -303,6 +303,7 @@ NB_MODEL = matrix(0,2500,50)
 X_train = tfidf_train_df + 1/D
 X_test  = tfidf_test_df + 1/D
 
+#Training Naive Bayes classifier for all models
 for (i in 1:50){
   print("Running model for:")
   print(author_names[i])

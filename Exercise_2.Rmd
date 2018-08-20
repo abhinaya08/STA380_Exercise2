@@ -7,6 +7,11 @@ output: github_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(ggmap)
+
 ```
 # Question 1
 
@@ -22,11 +27,6 @@ For a comfortable journey, we feel the following information is crucial:
 4. Which flight carrier should one avoid?
 
 ```{r, cache= TRUE}
-library(tidyverse)
-library(ggplot2)
-library(dplyr)
-library(ggmap)
-
 set.seed(145)
 df = read.csv("data/ABIA.csv")
 
@@ -62,7 +62,7 @@ During this period, a higher percentage of flights are delayed while departing f
 
 From the following plots, we can observe that flights from **Austin -> Virginia** suffer the highest delay times.
 
-```{r,cache=TRUE}
+```{r,include=FALSE,cache=TRUE}
 ####Create a map for the 
 air = read.csv("data/183806017_T_MASTER_CORD.csv")
 
@@ -78,25 +78,25 @@ df_origin = df %>%
 
 df_dest = df %>%
   filter(Dest == "AUS")
+```
 
+```{r,cache=TRUE}
 origin = df_origin %>%
   mutate_at(15, funs(replace(.,is.na(.),0))) %>%
   group_by(AIRPORT_STATE_NAME.dest) %>%
   summarize(flights = mean(DepDelay))
-head(origin)
-barplot(origin$flights, names.arg = origin$AIRPORT_STATE_NAME.dest,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights delayed while departing from ABIA")
+barplot(origin$flights, names.arg = origin$AIRPORT_STATE_NAME.dest,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights delayed while arriving at ABIA")
 
 destination = df_dest %>%
   group_by(AIRPORT_STATE_NAME.org) %>%
   summarize(flights = mean(ArrDelay))
-destination$AIRPORT_STATE_NAME.org
-barplot(destination$flights, names.arg = destination$AIRPORT_STATE_NAME.org,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights delayed while arrivaing at ABIA")
+barplot(destination$flights, names.arg = destination$AIRPORT_STATE_NAME.org,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights while departing from ABIA")
 
 ```
 
 
 
-```{r,cache=TRUE}
+```{r,cache=TRUE,include=FALSE}
 library(maps)
 library(fiftystater)
 us_states= map_data("state")
@@ -104,6 +104,9 @@ destination$AIRPORT_STATE_NAME.org = tolower(destination$AIRPORT_STATE_NAME.org)
 us_states_flight_dest = merge(x = us_states, y = destination, all.x = TRUE, by.x="region", by.y = "AIRPORT_STATE_NAME.org")
 us_states_flight_dest = us_states_flight_dest %>%
   mutate_at(7, funs(replace(.,is.na(.),0)))
+```
+
+```{r,cache=TRUE}
 
 data("fifty_states") # this line is optional due to lazy data loading
 q <- ggplot(us_states_flight_dest, aes(map_id = region)) + 
@@ -120,7 +123,7 @@ q <- ggplot(us_states_flight_dest, aes(map_id = region)) +
 q
 ```
 
-As seen above the flights to the state of Virginia have the maximum departure delay.
+
 
 ### Which carriers should one avoid?
 
@@ -183,7 +186,7 @@ Predict the author of the article based on article's textual context
 
 ## Step 1: Reading in the files from C50train and C50test directories
 
-```{r,cache=TRUE,message=FALSE, warning=FALSE, paged.print=FALSE, results="hide"}
+```{r warning=FALSE, paged.print=FALSE, results="hide"}
 library(tm)
 
 #Wrapper function
@@ -198,7 +201,7 @@ author_dirs_test = Sys.glob('ReutersC50/C50test/*')
 
 We have imported all the authors files for training into `author_dirs_train`. Now we will clean these files.
 
-```{r, cache= TRUE,message=FALSE, warning=FALSE, paged.print=FALSE, results="hide"}
+```{r message=FALSE, warning=FALSE, cache=TRUE, paged.print=FALSE, results="hide"}
 # Rolling all directories together into a single corpus and getting Author names
 file_list_train = NULL
 labels = NULL
@@ -382,7 +385,7 @@ X_train = tfidf_train_df + 1/D
 X_test  = tfidf_test_df + 1/D
 
 #Training Naive Bayes classifier for all models
-for (i in 1:50){
+for (i in 1:2){
   y_train = 0+{author_names_train == author_names[i]}
   y_test = 0+{author_names_test == author_names[i]}
   pvec_0 = colSums(X_train[y_train==0,])
@@ -403,7 +406,6 @@ for (i in 1:50){
 }
 
 mean(NB_error_rate)
-plot(NB_error_rate)
 ```
 
 
@@ -429,7 +431,7 @@ We also observed that Multiclass Lasso Regression and Ridge Regression failed to
 
 By using this data, we want to recommend to the store manager:
 
-* The item bundles he can run promotions on
+* The item bundles to run promotions on
 * Placement of items on aisles
 
 ```{r, cache= TRUE,message=FALSE, warning=FALSE, paged.print=FALSE}

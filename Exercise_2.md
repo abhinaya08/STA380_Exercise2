@@ -19,11 +19,6 @@ For a comfortable journey, we feel the following information is crucial:
 4.  Which flight carrier should one avoid?
 
 ``` r
-library(tidyverse)
-library(ggplot2)
-library(dplyr)
-library(ggmap)
-
 set.seed(145)
 df = read.csv("data/ABIA.csv")
 
@@ -61,76 +56,25 @@ During this period, a higher percentage of flights are delayed while departing f
 From the following plots, we can observe that flights from **Austin -&gt; Virginia** suffer the highest delay times.
 
 ``` r
-####Create a map for the 
-air = read.csv("data/183806017_T_MASTER_CORD.csv")
-
-dup = air[,1]
-air_ll = air[!duplicated(dup),]
-air_ll = air_ll[,c(1,4,6,8)]
-
-df = merge(x = df, y = air_ll, all.x = TRUE, by.x = "Dest", by.y = "AIRPORT")
-df = merge(x = df, y = air_ll, all.x = TRUE, by.x = "Origin", by.y = "AIRPORT", suffix =c(".dest",".org"))
-
-df_origin = df %>%
-  filter(Origin == "AUS") 
-
-df_dest = df %>%
-  filter(Dest == "AUS")
-
 origin = df_origin %>%
   mutate_at(15, funs(replace(.,is.na(.),0))) %>%
   group_by(AIRPORT_STATE_NAME.dest) %>%
   summarize(flights = mean(DepDelay))
-head(origin)
+barplot(origin$flights, names.arg = origin$AIRPORT_STATE_NAME.dest,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights delayed while arriving at ABIA")
 ```
 
-    ## # A tibble: 6 x 2
-    ##   AIRPORT_STATE_NAME.dest flights
-    ##   <fct>                     <dbl>
-    ## 1 Arizona                      NA
-    ## 2 California                   NA
-    ## 3 Colorado                     NA
-    ## 4 Florida                      NA
-    ## 5 Georgia                      NA
-    ## 6 Illinois                     NA
-
-``` r
-barplot(origin$flights, names.arg = origin$AIRPORT_STATE_NAME.dest,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights delayed while departing from ABIA")
-```
-
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-4-1.png)
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-5-1.png)
 
 ``` r
 destination = df_dest %>%
   group_by(AIRPORT_STATE_NAME.org) %>%
   summarize(flights = mean(ArrDelay))
-destination$AIRPORT_STATE_NAME.org
+barplot(destination$flights, names.arg = destination$AIRPORT_STATE_NAME.org,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights while departing from ABIA")
 ```
 
-    ##  [1] Arizona        California     Colorado       Florida       
-    ##  [5] Georgia        Illinois       Indiana        Kentucky      
-    ##  [9] Louisiana      Maryland       Massachusetts  Minnesota     
-    ## [13] Missouri       Nevada         New Jersey     New Mexico    
-    ## [17] New York       North Carolina Ohio           Pennsylvania  
-    ## [21] Tennessee      Texas          Utah           Virginia      
-    ## [25] Washington    
-    ## 54 Levels: Alabama Alaska Arizona Arkansas California ... Wyoming
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-5-2.png)
 
 ``` r
-barplot(destination$flights, names.arg = destination$AIRPORT_STATE_NAME.org,axisnames = TRUE, las=2, col="skyblue", main = "Percentage of flights delayed while arrivaing at ABIA")
-```
-
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-4-2.png)
-
-``` r
-library(maps)
-library(fiftystater)
-us_states= map_data("state")
-destination$AIRPORT_STATE_NAME.org = tolower(destination$AIRPORT_STATE_NAME.org)
-us_states_flight_dest = merge(x = us_states, y = destination, all.x = TRUE, by.x="region", by.y = "AIRPORT_STATE_NAME.org")
-us_states_flight_dest = us_states_flight_dest %>%
-  mutate_at(7, funs(replace(.,is.na(.),0)))
-
 data("fifty_states") # this line is optional due to lazy data loading
 q <- ggplot(us_states_flight_dest, aes(map_id = region)) + 
   # map points to the fifty_states shape data
@@ -146,9 +90,7 @@ q <- ggplot(us_states_flight_dest, aes(map_id = region)) +
 q
 ```
 
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-5-1.png)
-
-As seen above the flights to the state of Virginia have the maximum departure delay.
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-7-1.png)
 
 ### Which carriers should one avoid?
 
@@ -173,7 +115,7 @@ perfid = unique(ops[,cls])
 ggplot(perfid, aes(x = UniqueCarrier , y = performance)) + geom_bar(stat = "identity", fill = "#0000CC") + labs(title = "Operational Delays of Carriers in 2008", x = "Carriers", y="Operational Delays")
 ```
 
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-6-1.png)
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-8-1.png)
 
 ### Is there a day of the week that should be avoided?
 
@@ -194,13 +136,13 @@ par(mfrow=c(1,2))
 ggplot(arr,aes(x=DayOfWeek, y = arr_delay)) + geom_line() + geom_point()+ labs(title = "Arrival delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of arrival delays")
 ```
 
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-7-1.png)
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-9-1.png)
 
 ``` r
 ggplot(dep,aes(x=DayOfWeek, y = dep_delay)) + geom_line() + geom_point()+ labs(title = "Departure delays of flights per day in May - Aug 2008", x = "Day of week",y="Mean of departure delays") 
 ```
 
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-7-2.png)
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-9-2.png)
 
 Conclusion
 ----------
@@ -333,7 +275,7 @@ pve = summary(pc_author)$importance[3,]
 plot(pve)
 ```
 
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-12-1.png)
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-14-1.png)
 
 Since we cant see much of an elbow, we will cut at 75.
 
@@ -432,7 +374,7 @@ Question 3
 
 By using this data, we want to recommend to the store manager:
 
--   The item bundles he can run promotions on
+-   The item bundles to run promotions on
 -   Placement of items on aisles
 
 ``` r
@@ -553,7 +495,7 @@ plot(grocrules, measure = c("support", "lift"), shading = "confidence")
 
     ## To reduce overplotting, jitter is added! Use jitter = 0 to prevent jitter.
 
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-18-1.png)
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-20-1.png)
 
 By inspecting various subsets, we are certain that we need a high `confidence` measure.
 
@@ -685,13 +627,13 @@ Visually plotting the associations
 plot(head(grocrules, n = 20, by = "lift"),method = "graph")
 ```
 
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-21-1.png)
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-23-1.png)
 
 ``` r
 plot(head(grocrules, n = 50, by = "lift"), method = "paracoord",control = list(reorder = TRUE))
 ```
 
-![](Exercise_2_files/figure-markdown_github/unnamed-chunk-21-2.png)
+![](Exercise_2_files/figure-markdown_github/unnamed-chunk-23-2.png)
 
 ``` r
 saveAsGraph(head(grocrules[1:200], n = 1000, by = "lift"), file = "grocrules.graphml")

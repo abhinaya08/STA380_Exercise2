@@ -11,7 +11,57 @@ knitr::opts_chunk$set(echo = TRUE)
 # Question 1
 
 ```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(ggmap)
 
+set.seed(145)
+df = read.csv("C:/Users/teeru/Downloads/ABIA.csv")
+air = read.csv("C:/Users/teeru/Downloads/183806017_T_MASTER_CORD.csv")
+dup = air[c("AIRPORT","LAT_DEGREES","LON_DEGREES")]
+air_nodup = air[!duplicated(dup),]
+```
+
+```{r
+#Modifying the data
+df = df %>%
+  mutate_at(c(25:29), funs(replace(.,is.na(.),0))) %>%
+  mutate_at(15, funs(replace(.,is.na(.),0))) %>%
+  mutate ("Flight" = paste(UniqueCarrier,FlightNum) ) %>%
+  mutate("Late Arrival" = ifelse(ArrDelay > 0 , 1, 0)) %>%
+  mutate("Late Carrier" = ifelse(CarrierDelay > 0,1, 0)) %>%
+  mutate("Late Aircraft" = ifelse(LateAircraftDelay > 0, 1, 0)) %>%
+  mutate("OpEff" = `Late Arrival` + `Late Carrier` + `Late Aircraft` + Cancelled)
+```
+
+```{r}
+ggplot(df, aes(x= factor(Month))) +geom_bar(stat = "count") + labs(x = "Month", y= "Number of flights", title = "Number of flights in the year 2008") +coord_flip()
+```
+Since May to August is a busy time especially considering graduation, vacations and new college year start we will look at this data in more detail.
+
+```{r}
+df = df%>%
+  filter(Month == 5 | Month == 6| Month ==7 | Month ==8)
+```
+To see which carriers to avoid, we calculated the operational efficieny of the carriers. The operational efficiency was calculated as the weighted average of the following variables:
+1. Cancelled Flights
+2. Delayed Arrivals
+3. Late Aircrafts
+4. Delays due to the carrier
+
+While there may be some overlap in the above variables, but we have assumed none.
+
+```{r}
+oper = df %>%
+  group_by(UniqueCarrier, OpEff) %>%
+  summarise( cn = n()) %>%
+  mutate(performance = weighted.mean(cn,OpEff))
+
+cls = c(1,4)
+perf = unique(oper[,cls])
+
+ggplot(perf, aes(x = UniqueCarrier , y = performance)) + geom_bar(stat = "identity", fill = "#0000CC") + labs(title = "Operational Delays of Carriers in 2008", x = "Carriers", y="Operational Delays")
 ```
 
 #Question 2

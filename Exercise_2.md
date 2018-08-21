@@ -163,7 +163,18 @@ Step 1: Reading in the files from C50train and C50test directories
 
 ``` r
 library(tm)
+```
 
+    ## Loading required package: NLP
+
+    ## 
+    ## Attaching package: 'NLP'
+
+    ## The following object is masked from 'package:ggplot2':
+    ## 
+    ##     annotate
+
+``` r
 #Wrapper function
 readerPlain = function(fname){
   readPlain(elem=list(content=readLines(fname)), 
@@ -351,6 +362,51 @@ Model 3: Naive Bayes
 --------------------
 
 To avoid combinatorial explosion, we will have to build 1 classifier per author and then take the average accuracy for all authors. More details on combinatorial explosion here (<https://stackoverflow.com/questions/36323759/multiclass-classification-with-naive-bayes-and-r>)
+
+``` r
+library(foreach)
+library(doParallel)
+set.seed(12345)
+registerDoParallel()
+
+author_names = unique(sapply(strsplit(names(all_docs_train), "/"), "[", 3))
+author_names_train = sapply(strsplit(names(all_docs_train), "/"), "[", 3)
+author_names_test = sapply(strsplit(names(all_docs_test), "/"), "[", 3)
+D = ncol(tfidf_train_df)
+
+#initializing a matrix to store the output of 50 Naive Bayes models
+NB_MODEL = matrix(0,2500,50)
+NB_error_rate = matrix(0,50)
+
+#creating training and testing data
+X_train = tfidf_train_df + 1/D
+X_test  = tfidf_test_df + 1/D
+
+#Training Naive Bayes classifier for all models
+for (i in 1:50){
+  y_train = 0+{author_names_train == author_names[i]}
+  y_test = 0+{author_names_test == author_names[i]}
+  pvec_0 = colSums(X_train[y_train==0,])
+  pvec_0 = pvec_0/sum(pvec_0)
+  pvec_1 = colSums(X_train[y_train==1,])
+  pvec_1 = pvec_1/sum(pvec_1)
+  
+  #Running the classifier on test data
+  yhat_test = foreach(j = 1:2500,.combine='c') %dopar% {
+    test_doc = X_test[j,]
+    logp0 = sum(test_doc * log(pvec_0))
+    logp1 = sum(test_doc * log(pvec_1))
+    0 + {logp1 > logp0} #probabilty of that author
+  }
+  NB_MODEL[,i] = yhat_test
+  confusion_matrix = xtabs(~y_test + yhat_test)
+  NB_error_rate[i] = sum(diag(confusion_matrix))/2500
+}
+
+mean(NB_error_rate)
+```
+
+    ## [1] 0.977048
 
 Model Comparison and Conclusion
 -------------------------------

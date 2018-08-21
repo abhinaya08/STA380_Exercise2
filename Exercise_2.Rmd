@@ -365,7 +365,7 @@ Random Forest does a better job than classification as compared to Boosting.
 To avoid combinatorial explosion, we will have to build 1 classifier per author and then take the average accuracy for all authors.
 More details on combinatorial explosion here (https://stackoverflow.com/questions/36323759/multiclass-classification-with-naive-bayes-and-r)
 
-```{r eval=FALSE, warning=FALSE, cache=TRUE, include=FALSE, paged.print=FALSE}
+```{r warning=FALSE, cache=TRUE, paged.print=FALSE}
 library(foreach)
 library(doParallel)
 set.seed(12345)
@@ -385,7 +385,7 @@ X_train = tfidf_train_df + 1/D
 X_test  = tfidf_test_df + 1/D
 
 #Training Naive Bayes classifier for all models
-for (i in 1:2){
+for (i in 1:50){
   y_train = 0+{author_names_train == author_names[i]}
   y_test = 0+{author_names_test == author_names[i]}
   pvec_0 = colSums(X_train[y_train==0,])

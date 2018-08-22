@@ -383,8 +383,9 @@ NB_MODEL_train = matrix(0,2500,50)
 NB_error_rate = matrix(0,50)
 
 #creating training and testing data
-X_train = data.table(tfidf_train_df + 1/D)
-X_test  = data.table(tfidf_test_df + 1/D)
+X_train = (tfidf_train_df + 1/D)
+X_test  = (tfidf_test_df + 1/D)
+X_test <- X_test[names(X_train)] #Arranging columns in test DTM similar to train
 
 #Training Naive Bayes classifier for all models
 #Using matrix multiplication for faster calculation
@@ -418,7 +419,7 @@ pred_author_test = author_names[x]
 mean(pred_author_test == author_names_test)
 ```
 
-    ## [1] 0.0328
+    ## [1] 0.5788
 
 Model Comparison and Conclusion
 -------------------------------
@@ -426,10 +427,10 @@ Model Comparison and Conclusion
 |                    | XG Boost | Random Forest | Naive Bayes |
 |--------------------|----------|---------------|-------------|
 | Trainig Accuracy   | 85.7 %   | 100%          | 90.3%       |
-| Test Accuracy      | 39.0%    | 50.3%         | 3.2%        |
+| Test Accuracy      | 39.0%    | 50.3%         | 57.9%       |
 | Computational Time | Long     | Medium        | Short       |
 
-Random Forest takes some time to compute, however, classifies the documents with the highest accuracy.
+Naive Bayes takes the shortest time to run (because of matrix multiplication) and produces the highest accuracy of 57.9%
 
 Dropping words from the test dictionary (DTM) that do not belong to the training dictionary may be the driving factor for lower accuracy scores from advanced algorithms like Random Forest and Boosting.
 

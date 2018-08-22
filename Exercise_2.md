@@ -425,7 +425,7 @@ Model Comparison and Conclusion
 
 |                    | XG Boost | Random Forest | Naive Bayes |
 |--------------------|----------|---------------|-------------|
-| Baseline Accuracy  | 85.7 %   | 100%          | 90.3%       |
+| Trainig Accuracy   | 85.7 %   | 100%          | 90.3%       |
 | Test Accuracy      | 39.0%    | 50.3%         | 3.2%        |
 | Computational Time | Long     | Medium        | Short       |
 

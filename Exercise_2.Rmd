@@ -424,9 +424,9 @@ mean(pred_author_test == author_names_test)
 |--------------------	|----------	|---------------	|-------------	|
 | Baseline Accuracy  	|  85.7 %  	|      100%     	|    90.3%    	|
 | Test Accuracy      	|   39.0%  	|     50.3%     	|    3.2%     	|
-| Computational Time 	|   Long  	|     Short     	|   Medium    	|
+| Computational Time 	|   Long  	|     Medium     	|   Short     	|
 
-Random Forest takes the longest time, however, classifies the documents with the highest accuracy.
+Random Forest takes some time to compute, however, classifies the documents with the highest accuracy.
 
 Dropping words from the test dictionary (DTM) that do not belong to the training dictionary may be the driving factor for lower accuracy scores from advanced algorithms like Random Forest and Boosting. 
 

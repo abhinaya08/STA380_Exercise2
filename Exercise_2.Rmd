@@ -365,9 +365,12 @@ Random Forest does a better job than classification as compared to Boosting.
 To avoid combinatorial explosion, we will have to build 1 classifier per author and then take the average accuracy for all authors.
 More details on combinatorial explosion here (https://stackoverflow.com/questions/36323759/multiclass-classification-with-naive-bayes-and-r)
 
+Comparing the probability scores across the whole dataset and choosing the class based on highest probability. More on (https://stats.stackexchange.com/questions/142505/how-to-use-naive-bayes-for-multi-class-problems)
+
 ```{r warning=FALSE, cache=TRUE, paged.print=FALSE}
 library(foreach)
 library(doParallel)
+library(data.table)
 set.seed(12345)
 registerDoParallel()
 
@@ -378,34 +381,39 @@ D = ncol(tfidf_train_df)
 
 #initializing a matrix to store the output of 50 Naive Bayes models
 NB_MODEL = matrix(0,2500,50)
+NB_MODEL_train = matrix(0,2500,50)
 NB_error_rate = matrix(0,50)
 
 #creating training and testing data
-X_train = tfidf_train_df + 1/D
-X_test  = tfidf_test_df + 1/D
+X_train = data.table(tfidf_train_df + 1/D)
+X_test  = data.table(tfidf_test_df + 1/D)
 
 #Training Naive Bayes classifier for all models
+#Using matrix multiplication for faster calculation
+
 for (i in 1:50){
   y_train = 0+{author_names_train == author_names[i]}
-  y_test = 0+{author_names_test == author_names[i]}
-  pvec_0 = colSums(X_train[y_train==0,])
-  pvec_0 = pvec_0/sum(pvec_0)
   pvec_1 = colSums(X_train[y_train==1,])
   pvec_1 = pvec_1/sum(pvec_1)
   
+  #Runing classsifier on training data
+  log_1 = as.matrix(X_train ) %*% as.matrix(log(pvec_1))
+  NB_MODEL_train[,i] = log_1
+  
   #Running the classifier on test data
-  yhat_test = foreach(j = 1:2500,.combine='c') %dopar% {
-    test_doc = X_test[j,]
-    logp0 = sum(test_doc * log(pvec_0))
-    logp1 = sum(test_doc * log(pvec_1))
-    0 + {logp1 > logp0} #probabilty of that author
-  }
-  NB_MODEL[,i] = yhat_test
-  confusion_matrix = xtabs(~y_test + yhat_test)
-  NB_error_rate[i] = sum(diag(confusion_matrix))/2500
+  log_1 = as.matrix(X_test) %*% as.matrix(log(pvec_1))
+  NB_MODEL[,i] = log_1
 }
 
-mean(NB_error_rate)
+#Training data accuracy
+x = apply(NB_MODEL_train, MARGIN = 1, FUN = which.max)
+pred_author_train = author_names[x]
+mean(pred_author_train == author_names_train)
+
+#Testing data accuracy
+x = apply(NB_MODEL,MARGIN = 1, FUN = which.max)
+pred_author_test = author_names[x]
+mean(pred_author_test == author_names_test)
 ```
 
 
@@ -414,12 +422,11 @@ mean(NB_error_rate)
 
 |                    	| XG Boost 	| Random Forest 	| Naive Bayes 	|
 |--------------------	|----------	|---------------	|-------------	|
-| Baseline Accuracy  	|  85.7 %  	|      100%     	|      NA     	|
-| Test Accuracy      	|   39.0%  	|     50.3%     	|    97.7%    	|
-| Computational Time 	|  Medium  	|     Short     	|     Long    	|
+| Baseline Accuracy  	|  85.7 %  	|      100%     	|    90.3%    	|
+| Test Accuracy      	|   39.0%  	|     50.3%     	|    3.2%     	|
+| Computational Time 	|   Long  	|     Short     	|   Medium    	|
 
-
-Naive Bayes does a good job at classifying the zeros i.e identifying which documents **do not** belong to a particular author.
+Random Forest takes the longest time, however, classifies the documents with the highest accuracy.
 
 Dropping words from the test dictionary (DTM) that do not belong to the training dictionary may be the driving factor for lower accuracy scores from advanced algorithms like Random Forest and Boosting. 
 
